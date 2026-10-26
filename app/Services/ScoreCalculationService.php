@@ -1490,11 +1490,11 @@ class ScoreCalculationService {
         
         $requiredThpt = 15.00;
         $requiredXTN = null;
+        $isSpecialPedagogy = in_array((string)$maNganh, ['7140206', '7140221', '7140222']);
         
-        if ($bestMethod === '200') {
+        if ($bestMethod === '200' || $isSpecialPedagogy) {
             // Nhóm Sư phạm (714)
             if (strpos($maNganh, '714') === 0) {
-                $isSpecialPedagogy = in_array((string)$maNganh, ['7140206', '7140221', '7140222']);
                 if ($isSpecialPedagogy) {
                     $requiredThpt = 16.50;
                     $requiredXTN = 6.50;
@@ -1555,6 +1555,17 @@ class ScoreCalculationService {
 
         if ($passedToanVan) {
             return true;
+        }
+
+        // B2. Quy chế Điều 9 khoản 2 điểm b: Đối với các ngành SP năng khiếu (GDTC 7140206, SPAN 7140221, SPMT 7140222)
+        // hoặc khi thí sinh dự thi tốt nghiệp THPT các môn theo tổ hợp KHXH không bắt buộc Toán:
+        // Chỉ cần tổng 3 môn thi tốt nghiệp THPT bất kỳ (hoặc 3 môn cao nhất) >= ngưỡng quy định:
+        if ($isSpecialPedagogy || count($scores) >= 3) {
+            $scoreVals = array_values($scores);
+            rsort($scoreVals);
+            if (count($scoreVals) >= 3 && ($scoreVals[0] + $scoreVals[1] + $scoreVals[2]) >= $activeRequiredThpt) {
+                return true;
+            }
         }
 
         // C. Kiểm tra THPT theo các tổ hợp hợp lệ của ngành đăng ký xét tuyển
