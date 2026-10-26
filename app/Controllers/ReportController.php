@@ -249,7 +249,7 @@ class ReportController extends Controller {
         $localFiles = [];
 
         foreach ($list as $idx => $c) {
-            $path = $c['anh_dai_dien'] ?? '';
+            $path = $c['anh_dai_dien'] ?? $c['Ảnh đại diện'] ?? '';
             if (!$path) continue;
             if (strpos($path, 'http') === 0) {
                 $remoteFiles[$idx] = $path;

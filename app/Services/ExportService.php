@@ -140,7 +140,10 @@ class ExportService {
                 LEFT JOIN dm_truong_thpt truong ON t.ma_truong_lop_12 = truong.ma_truong AND truong.is_active = TRUE
                 LEFT JOIN ho_so_xet_tuyen h ON t.so_cccd = h.so_cccd
                 LEFT JOIN quan_tri_vien qtv ON h.nguoi_duyet_id = qtv.id
-                WHERE 1=1";
+                WHERE 1=1
+                  AND h.deleted_at IS NULL
+                  AND t.deleted_at IS NULL
+                  AND EXISTS (SELECT 1 FROM nguyen_vong nv WHERE nv.ho_so_id = h.id OR (nv.so_cccd = h.so_cccd AND nv.dot_tuyen_sinh_id = h.dot_tuyen_sinh_id))";
 
         $params = [];
         if (!empty($filters['status'])) {
@@ -437,7 +440,8 @@ class ExportService {
                 WHERE h.deleted_at IS NULL
                   AND t.deleted_at IS NULL
                   AND t.anh_dai_dien IS NOT NULL 
-                  AND t.anh_dai_dien != ''";
+                  AND t.anh_dai_dien != ''
+                  AND EXISTS (SELECT 1 FROM nguyen_vong nv WHERE nv.ho_so_id = h.id OR (nv.so_cccd = h.so_cccd AND nv.dot_tuyen_sinh_id = h.dot_tuyen_sinh_id))";
 
         $params = [];
         if (!empty($filters['session_id'])) {
@@ -462,7 +466,9 @@ class ExportService {
     public function getStatistics($filters = []) {
         $stats = [];
         $sessionId = $filters['session_id'] ?? null;
-        $where = $sessionId ? " WHERE dot_tuyen_sinh_id = ?" : "";
+        $baseWhere = " WHERE ho_so_xet_tuyen.deleted_at IS NULL 
+                         AND EXISTS (SELECT 1 FROM nguyen_vong nv WHERE nv.ho_so_id = ho_so_xet_tuyen.id OR (nv.so_cccd = ho_so_xet_tuyen.so_cccd AND nv.dot_tuyen_sinh_id = ho_so_xet_tuyen.dot_tuyen_sinh_id))";
+        $where = $sessionId ? ($baseWhere . " AND ho_so_xet_tuyen.dot_tuyen_sinh_id = ?") : $baseWhere;
         $whereNv = $sessionId ? " AND nv.dot_tuyen_sinh_id = ?" : "";
         $params = $sessionId ? [$sessionId] : [];
 
@@ -485,8 +491,7 @@ class ExportService {
 
         // By Date (Last 14 days)
         $sqlDate = "SELECT DATE(created_at) as date, COUNT(*) as count 
-                    FROM ho_so_xet_tuyen 
-                    WHERE created_at > NOW() - INTERVAL '14 days'" . ($sessionId ? " AND dot_tuyen_sinh_id = ?" : "") . " 
+                    FROM ho_so_xet_tuyen" . $where . " AND created_at > NOW() - INTERVAL '14 days' 
                     GROUP BY DATE(created_at) ORDER BY date";
         $stmt = $this->db->prepare($sqlDate);
         $stmt->execute($params);
@@ -499,7 +504,7 @@ class ExportService {
         $stats['total_candidates'] = $stmt->fetchColumn();
 
         // Approved
-        $sqlApproved = "SELECT COUNT(*) FROM ho_so_xet_tuyen WHERE trang_thai = 'Đã duyệt'" . ($sessionId ? " AND dot_tuyen_sinh_id = ?" : "");
+        $sqlApproved = "SELECT COUNT(*) FROM ho_so_xet_tuyen" . $where . " AND trang_thai = 'Đã duyệt'";
         $stmt = $this->db->prepare($sqlApproved);
         $stmt->execute($params);
         $stats['total_approved'] = $stmt->fetchColumn();
